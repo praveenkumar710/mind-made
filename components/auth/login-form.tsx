@@ -16,14 +16,14 @@ export function LoginForm() {
   const { toast } = useToast()
 
   const [emailForm, setEmailForm] = useState({
-    email: "praveen@gmail.com",
-    password: "pass@123",
+    email: "",
+    password: "",
     name: "",
   })
 
   const [phoneForm, setPhoneForm] = useState({
-    phone: "+911234567890",
-    otp: "1234",
+    phone: "",
+    otp: "",
   })
 
   const [showPassword, setShowPassword] = useState(false)
