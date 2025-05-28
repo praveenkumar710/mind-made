@@ -22,8 +22,8 @@ export function LoginForm() {
   })
 
   const [phoneForm, setPhoneForm] = useState({
-    phone: "",
-    otp: "",
+    phone: "+911234567890",
+    otp: "1234",
   })
 
   const [showPassword, setShowPassword] = useState(false)
