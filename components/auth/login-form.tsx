@@ -16,8 +16,8 @@ export function LoginForm() {
   const { toast } = useToast()
 
   const [emailForm, setEmailForm] = useState({
-    email: "",
-    password: "",
+    email: "praveen@gmail.com",
+    password: "pass@123",
     name: "",
   })
 
