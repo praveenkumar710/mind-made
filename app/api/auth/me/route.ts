@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { connectDB } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { env } from "@/lib/env"
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No token provided" }, { status: 401 })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+    const decoded = jwt.verify(token, env.JWT_SECRET) as any
 
     const db = await connectDB()
     const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.userId) })

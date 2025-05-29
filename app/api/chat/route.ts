@@ -1,20 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { streamText } from "ai"
 import { openai } from "@ai-sdk/openai"
+import { xai } from "@ai-sdk/xai"
 import jwt from "jsonwebtoken"
 import { connectDB } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { env } from "@/lib/env"
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages } = await request.json()
+    const { messages, provider = "openai" } = await request.json()
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+    const decoded = jwt.verify(token, env.JWT_SECRET) as any
     const db = await connectDB()
 
     // Get user context for personalization
@@ -42,8 +44,18 @@ export async function POST(request: NextRequest) {
     
     Be helpful, encouraging, and personalized. Keep responses concise but informative.`
 
+    // Choose AI model based on availability and preference
+    let model
+    if (provider === "grok" && env.XAI_API_KEY) {
+      model = xai("grok-2-1212")
+    } else if (env.OPENAI_API_KEY) {
+      model = openai("gpt-4o")
+    } else {
+      return NextResponse.json({ error: "No AI provider configured" }, { status: 500 })
+    }
+
     const result = await streamText({
-      model: openai("gpt-4o"),
+      model,
       system: systemPrompt,
       messages,
     })
@@ -52,6 +64,7 @@ export async function POST(request: NextRequest) {
     await db.collection("conversations").insertOne({
       userId: new ObjectId(decoded.userId),
       messages: [...messages, { role: "assistant", content: await result.text }],
+      provider,
       createdAt: new Date(),
     })
 

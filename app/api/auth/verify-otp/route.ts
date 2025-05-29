@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { connectDB } from "@/lib/mongodb"
+import { env } from "@/lib/env"
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     // Delete used OTP
     await db.collection("otps").deleteOne({ _id: otpRecord._id })
 
-    const token = jwt.sign({ userId: user._id, phone: user.phone }, process.env.JWT_SECRET!, { expiresIn: "7d" })
+    const token = jwt.sign({ userId: user._id, phone: user.phone }, env.JWT_SECRET, { expiresIn: "7d" })
 
     return NextResponse.json({
       token,

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { connectDB } from "@/lib/mongodb"
+import { env } from "@/lib/env"
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const token = jwt.sign({ userId: result.insertedId, email }, process.env.JWT_SECRET!, { expiresIn: "7d" })
+    const token = jwt.sign({ userId: result.insertedId, email }, env.JWT_SECRET, { expiresIn: "7d" })
 
     return NextResponse.json({
       token,
