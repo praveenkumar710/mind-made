@@ -1,14 +1,14 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mail, Phone, Eye, EyeOff } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Mail, Phone, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export function LoginForm() {
@@ -30,67 +30,73 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [otpSent, setOtpSent] = useState(false)
   const [isRegister, setIsRegister] = useState(false)
+  const [error, setError] = useState("")
+  const [developmentOtp, setDevelopmentOtp] = useState("")
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
     try {
-      let success = false
+      let result
 
       if (isRegister) {
-        success = await register(emailForm.email, emailForm.password, emailForm.name)
+        if (!emailForm.name.trim()) {
+          setError("Name is required")
+          setIsLoading(false)
+          return
+        }
+        result = await register(emailForm.email, emailForm.password, emailForm.name)
       } else {
-        success = await login(emailForm.email, emailForm.password)
+        result = await login(emailForm.email, emailForm.password)
       }
 
-      if (success) {
+      if (result.success) {
         toast({
           title: "Success!",
           description: isRegister ? "Account created successfully!" : "Welcome back!",
         })
       } else {
-        toast({
-          title: "Authentication failed",
-          description: "Please check your credentials and try again.",
-          variant: "destructive",
-        })
+        setError(result.error || "Authentication failed")
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
-      })
+      setError("An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleSendOTP = async () => {
+    if (!phoneForm.phone.trim()) {
+      setError("Phone number is required")
+      return
+    }
+
     setIsLoading(true)
+    setError("")
 
     try {
-      const success = await sendOTP(phoneForm.phone)
-      if (success) {
+      const result = await sendOTP(phoneForm.phone)
+      if (result.success) {
         setOtpSent(true)
-        toast({
-          title: "OTP sent",
-          description: "Check your phone for the verification code.",
-        })
+        if (result.developmentOtp) {
+          setDevelopmentOtp(result.developmentOtp)
+          toast({
+            title: "Development Mode",
+            description: `OTP: ${result.developmentOtp}`,
+          })
+        } else {
+          toast({
+            title: "OTP sent",
+            description: "Check your phone for the verification code.",
+          })
+        }
       } else {
-        toast({
-          title: "Failed to send OTP",
-          description: "Please check your phone number and try again.",
-          variant: "destructive",
-        })
+        setError(result.error || "Failed to send OTP")
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send OTP.",
-        variant: "destructive",
-      })
+      setError("Failed to send OTP")
     } finally {
       setIsLoading(false)
     }
@@ -99,40 +105,49 @@ export function LoginForm() {
   const handlePhoneAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
     try {
-      const success = await loginWithPhone(phoneForm.phone, phoneForm.otp)
-      if (success) {
+      const result = await loginWithPhone(phoneForm.phone, phoneForm.otp)
+      if (result.success) {
         toast({
           title: "Success!",
           description: "Welcome to MindMate!",
         })
       } else {
-        toast({
-          title: "Verification failed",
-          description: "Please check your OTP and try again.",
-          variant: "destructive",
-        })
+        setError(result.error || "Verification failed")
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
-      })
+      setError("An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Welcome to MindMate</CardTitle>
           <p className="text-gray-600">Your personal AI assistant</p>
         </CardHeader>
         <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {developmentOtp && (
+            <Alert className="mb-4">
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                Development OTP: <strong>{developmentOtp}</strong>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Tabs defaultValue="email" className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="email" className="flex items-center gap-2">
@@ -166,10 +181,11 @@ export function LoginForm() {
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password"
+                    placeholder="Password (min 6 characters)"
                     value={emailForm.password}
                     onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
                     required
+                    minLength={6}
                   />
                   <Button
                     type="button"
@@ -184,7 +200,15 @@ export function LoginForm() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Please wait..." : isRegister ? "Create Account" : "Sign In"}
                 </Button>
-                <Button type="button" variant="ghost" className="w-full" onClick={() => setIsRegister(!isRegister)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setIsRegister(!isRegister)
+                    setError("")
+                  }}
+                >
                   {isRegister ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
                 </Button>
               </form>
@@ -213,11 +237,21 @@ export function LoginForm() {
                       value={phoneForm.otp}
                       onChange={(e) => setPhoneForm({ ...phoneForm, otp: e.target.value })}
                       required
+                      maxLength={6}
                     />
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? "Verifying..." : "Verify OTP"}
                     </Button>
-                    <Button type="button" variant="ghost" className="w-full" onClick={() => setOtpSent(false)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        setOtpSent(false)
+                        setError("")
+                        setDevelopmentOtp("")
+                      }}
+                    >
                       Change Phone Number
                     </Button>
                   </form>
