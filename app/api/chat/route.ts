@@ -9,18 +9,29 @@ import { env } from "@/lib/env"
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, provider = "openai" } = await request.json()
+    const { messages, provider = "auto" } = await request.json()
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = jwt.verify(token, env.JWT_SECRET) as any
+    // Verify JWT token
+    let decoded
+    try {
+      decoded = jwt.verify(token, env.JWT_SECRET) as any
+    } catch (error) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+    }
+
     const db = await connectDB()
 
     // Get user context for personalization
     const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.userId) })
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
     const recentTasks = await db
       .collection("tasks")
       .find({
@@ -46,31 +57,68 @@ export async function POST(request: NextRequest) {
 
     // Choose AI model based on availability and preference
     let model
+    let selectedProvider = provider
+
     if (provider === "grok" && env.XAI_API_KEY) {
       model = xai("grok-2-1212")
-    } else if (env.OPENAI_API_KEY) {
+      selectedProvider = "grok"
+    } else if (provider === "openai" && env.OPENAI_API_KEY) {
       model = openai("gpt-4o")
+      selectedProvider = "openai"
+    } else if (provider === "auto") {
+      // Auto-select based on availability
+      if (env.OPENAI_API_KEY) {
+        model = openai("gpt-4o")
+        selectedProvider = "openai"
+      } else if (env.XAI_API_KEY) {
+        model = xai("grok-2-1212")
+        selectedProvider = "grok"
+      } else {
+        return NextResponse.json(
+          {
+            error: "No AI provider configured. Please add OPENAI_API_KEY or XAI_API_KEY to your environment variables.",
+          },
+          { status: 500 },
+        )
+      }
     } else {
-      return NextResponse.json({ error: "No AI provider configured" }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: `AI provider '${provider}' is not available or not configured.`,
+        },
+        { status: 500 },
+      )
     }
+
+    console.log(`🤖 Using AI provider: ${selectedProvider}`)
 
     const result = await streamText({
       model,
       system: systemPrompt,
       messages,
+      maxTokens: 1000,
+      temperature: 0.7,
     })
 
-    // Save conversation to database
-    await db.collection("conversations").insertOne({
-      userId: new ObjectId(decoded.userId),
-      messages: [...messages, { role: "assistant", content: await result.text }],
-      provider,
-      createdAt: new Date(),
-    })
+    // Save conversation to database (don't await to avoid blocking response)
+    db.collection("conversations")
+      .insertOne({
+        userId: new ObjectId(decoded.userId),
+        messages: [...messages],
+        provider: selectedProvider,
+        createdAt: new Date(),
+      })
+      .catch((error) => console.error("Failed to save conversation:", error))
 
     return result.toDataStreamResponse()
   } catch (error) {
     console.error("Chat error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }

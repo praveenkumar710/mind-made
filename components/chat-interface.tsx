@@ -6,14 +6,27 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Mic, MicOff, Send, Volume2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Mic, MicOff, Send, Volume2, Bot, Zap } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any
+    SpeechRecognition: any
+  }
+}
+
 export function ChatInterface() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const [aiProvider, setAiProvider] = useState("auto")
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: "/api/chat",
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+    body: {
+      provider: aiProvider,
     },
   })
 
@@ -58,6 +71,16 @@ export function ChatInterface() {
     }
   }, [messages])
 
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Chat Error",
+        description: error.message || "Something went wrong with the AI chat.",
+        variant: "destructive",
+      })
+    }
+  }, [error, toast])
+
   const toggleListening = () => {
     if (!recognition) {
       toast({
@@ -86,13 +109,52 @@ export function ChatInterface() {
     }
   }
 
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case "grok":
+        return <Zap className="h-3 w-3" />
+      case "openai":
+        return <Bot className="h-3 w-3" />
+      default:
+        return <Bot className="h-3 w-3" />
+    }
+  }
+
   return (
     <div className="flex flex-col h-[600px]">
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-2">
+          <h3 className="font-medium">AI Assistant</h3>
+          <Badge variant="outline" className="flex items-center gap-1">
+            {getProviderIcon(aiProvider)}
+            {aiProvider === "auto" ? "Auto" : aiProvider === "grok" ? "Grok" : "OpenAI"}
+          </Badge>
+        </div>
+        <Select value={aiProvider} onValueChange={setAiProvider}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Auto</SelectItem>
+            <SelectItem value="openai">OpenAI</SelectItem>
+            <SelectItem value="grok">Grok</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
+            <div className="flex items-center justify-center mb-4">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <Bot className="h-8 w-8 text-blue-600" />
+              </div>
+            </div>
             <p className="text-lg mb-2">👋 Hi! I'm MindMate, your personal AI assistant.</p>
             <p>Ask me anything about tasks, goals, coding, or just chat!</p>
+            <div className="mt-4 text-sm text-gray-400">
+              <p>Try asking: "Help me plan my day" or "Create a task for tomorrow"</p>
+            </div>
           </div>
         )}
 
@@ -128,9 +190,15 @@ export function ChatInterface() {
               <CardContent className="p-3">
                 <div className="flex items-center space-x-2">
                   <div className="animate-pulse flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.1s" }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
                   </div>
                   <span className="text-sm text-gray-500">MindMate is thinking...</span>
                 </div>
@@ -155,6 +223,7 @@ export function ChatInterface() {
             size="icon"
             onClick={toggleListening}
             className={isListening ? "bg-red-100 text-red-600" : ""}
+            disabled={isLoading}
           >
             {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </Button>

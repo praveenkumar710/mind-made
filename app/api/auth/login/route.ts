@@ -8,14 +8,32 @@ export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
 
-    const db = await connectDB()
-    const user = await db.collection("users").findOne({ email })
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+    }
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    const db = await connectDB()
+    const user = await db.collection("users").findOne({ email: email.toLowerCase() })
+
+    if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const token = jwt.sign({ userId: user._id, email: user.email }, env.JWT_SECRET, { expiresIn: "7d" })
+    const isValidPassword = await bcrypt.compare(password, user.password)
+    if (!isValidPassword) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+      },
+      env.JWT_SECRET,
+      { expiresIn: "7d" },
+    )
+
+    console.log(`✅ User logged in: ${user.email}`)
 
     return NextResponse.json({
       token,
@@ -28,6 +46,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Login error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
