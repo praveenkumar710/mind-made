@@ -97,8 +97,6 @@ export function LoginForm() {
       }
     } catch (error) {
       setError("Failed to send OTP")
-    } finally {
-      setIsLoading(false)
     }
   }
 
