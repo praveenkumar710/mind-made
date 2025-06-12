@@ -1,10 +1,11 @@
 // Environment configuration with validation
 export const env = {
   // Database
-  // Fix: Remove special characters from the MongoDB URI
+  // Switch to local MongoDB instance
   MONGODB_URI:
     process.env.MONGODB_URI ||
     "mongodb+srv://praveenkumarpp710:TP710leomd@cluster0.hfwn5c5.mongodb.net/mindmate?retryWrites=true&w=majority",
+    // "mongodb://localhost:27017/mindmate",
 
   // Authentication
   JWT_SECRET:
