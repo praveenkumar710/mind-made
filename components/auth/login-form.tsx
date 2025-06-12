@@ -11,6 +11,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Mail, Phone, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+/**
+ * Renders a tabbed login and registration form supporting authentication via email/password or phone/OTP.
+ *
+ * Provides user feedback for errors, loading states, and development OTPs. Allows users to toggle between sign-in and sign-up modes, and between email and phone authentication methods.
+ *
+ * @returns The login form React component.
+ */
 export function LoginForm() {
   const { login, loginWithPhone, register, sendOTP } = useAuth()
   const { toast } = useToast()
